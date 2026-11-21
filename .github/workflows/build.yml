@@ -2,47 +2,49 @@ name: Build Switch IPA
 
 on:
   workflow_dispatch:
-    inputs:
-      extra_flags:
-        description: 'Optional flags (e.g. --romfs separate --shader-files)'
-        required: false
-        default: ''
 
 jobs:
   build-ipa:
     runs-on: macos-latest
-    timeout-minutes: 120
-
     steps:
-      - name: Checkout nxnative repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download Metal toolchain
-        run: xcodebuild -downloadComponent MetalToolchain
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-      - name: Install Homebrew & Python dependencies
+      - name: Install build dependencies
         run: |
           brew install xcodegen zstd glslang
-          python3 -m pip install --upgrade pip
-          python3 -m pip install lz4 "capstone>=5,<6" fonttools nsz zbic "backports.zstd; python_version < '3.14'"
+          if [ -f requirements.txt ]; then
+            pip3 install --break-system-packages -r requirements.txt || true
+          fi
 
-      - name: Prepare prod.keys and download NSP
-        env:
-          PROD_KEYS: ${{ secrets.PROD_KEYS }}
-          NSP_URL: ${{ secrets.NSP_URL }}
+      - name: Prepare prod.keys
         run: |
-          mkdir -p ~/Keys ~/Games/TargetGame
-          printf '%s\n' "$PROD_KEYS" > ~/Keys/prod.keys
-          curl -L --fail "$NSP_URL" -o ~/Games/TargetGame/game.nsp
-          ls -lh ~/Games/TargetGame/game.nsp
+          mkdir -p "$HOME/Keys"
+          printf "%s\n" "${{ secrets.PROD_KEYS }}" > "$HOME/Keys/prod.keys"
+          test -s "$HOME/Keys/prod.keys"
+
+      - name: Download NSP
+        run: |
+          mkdir -p "$HOME/Games"
+          curl -fL --retry 3 --retry-delay 5 "${{ secrets.NSP_URL }}" -o "$HOME/Games/game.nsp"
+          ls -lh "$HOME/Games/game.nsp"
+          file "$HOME/Games/game.nsp"
 
       - name: Build IPA with nxnative
         run: |
-          python3 scripts/build_ipa_from_nsp.py ~/Games/TargetGame -k ~/Keys/prod.keys ${{ github.event.inputs.extra_flags }}
+          python3 scripts/build_ipa_from_nsp.py "$HOME/Games/game.nsp" -k "$HOME/Keys/prod.keys"
 
-      - name: Upload resulting IPA
+      - name: Upload IPA artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: nxnative-ipa
-          path: ~/Games/TargetGame/*.ipa
-          if-no-files-found: error
+          name: switch-ipa
+          path: |
+            **/*.ipa
+            !**/Build/**
+          if-no-files-found: warn
