@@ -50,4 +50,5 @@ jobs:
           path: |
             **/*.ipa
             !**/Build/**
+            /Users/runner/Games/Mina/**/*survey*/survey.md
             /Users/runner/Games/Mina/*_build/logs/*.log
