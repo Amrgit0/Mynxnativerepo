@@ -1,0 +1,48 @@
+name: Build Switch IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      extra_flags:
+        description: 'Optional flags (e.g. --romfs separate --shader-files)'
+        required: false
+        default: ''
+
+jobs:
+  build-ipa:
+    runs-on: macos-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout nxnative repo
+        uses: actions/checkout@v4
+
+      - name: Download Metal toolchain
+        run: xcodebuild -downloadComponent MetalToolchain
+
+      - name: Install Homebrew & Python dependencies
+        run: |
+          brew install xcodegen zstd glslang
+          python3 -m pip install --upgrade pip
+          python3 -m pip install lz4 "capstone>=5,<6" fonttools nsz zbic "backports.zstd; python_version < '3.14'"
+
+      - name: Prepare prod.keys and download NSP
+        env:
+          PROD_KEYS: ${{ secrets.PROD_KEYS }}
+          NSP_URL: ${{ secrets.NSP_URL }}
+        run: |
+          mkdir -p ~/Keys ~/Games/TargetGame
+          printf '%s\n' "$PROD_KEYS" > ~/Keys/prod.keys
+          curl -L --fail "$NSP_URL" -o ~/Games/TargetGame/game.nsp
+          ls -lh ~/Games/TargetGame/game.nsp
+
+      - name: Build IPA with nxnative
+        run: |
+          python3 scripts/build_ipa_from_nsp.py ~/Games/TargetGame -k ~/Keys/prod.keys ${{ github.event.inputs.extra_flags }}
+
+      - name: Upload resulting IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: nxnative-ipa
+          path: ~/Games/TargetGame/*.ipa
+          if-no-files-found: error
