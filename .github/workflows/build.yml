@@ -40,7 +40,7 @@ jobs:
         run: |
           mkdir -p "$HOME/Games/Mina"
           mv "$HOME/Games/game.nsp" "$HOME/Games/Mina/game.nsp"
-          python3 scripts/build_ipa_from_nsp.py "$HOME/Games/Mina" -k "$HOME/Keys/prod.keys"
+          python3 scripts/build_ipa_from_nsp.py "$HOME/Games/Mina" -k "$HOME/Keys/prod.keys" --allow-other-metal
 
       - name: Upload IPA artifact
         if: always()
