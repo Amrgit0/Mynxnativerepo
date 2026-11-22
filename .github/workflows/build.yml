@@ -42,12 +42,18 @@ jobs:
           mv "$HOME/Games/game.nsp" "$HOME/Games/Mina/game.nsp"
           python3 scripts/build_ipa_from_nsp.py "$HOME/Games/Mina" -k "$HOME/Keys/prod.keys" --allow-other-metal
 
+      - name: Check generated IPA files
+        if: always()
+        run: |
+          ls -lh /Users/runner/Games/Mina/*.ipa 2>/dev/null || true
+
       - name: Upload IPA artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: nxnative-ipa
           path: |
+            /Users/runner/Games/Mina/*.ipa
             **/*.ipa
             !**/Build/**
             /Users/runner/Games/Mina/**/*survey*/survey.md
